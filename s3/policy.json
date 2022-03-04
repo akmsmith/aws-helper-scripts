@@ -1,0 +1,12 @@
+{
+    "Rules": [
+        {
+            "ID": "rsd-4208",
+            "Filter": {},
+            "Status": "Enabled",
+            "NoncurrentVersionExpiration": {
+                "NoncurrentDays": 14
+            }
+        }
+    ]
+}

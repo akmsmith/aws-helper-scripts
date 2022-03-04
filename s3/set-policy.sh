@@ -8,6 +8,6 @@ buckets=$(cat $FILENAME)
 
 for LINE in $buckets
 do
-aws s3api put-bucket-lifecycle-configuration --bucket $LINE --lifecycle-configuration  file://$POLICY
+aws s3api put-bucket-lifecycle-configuration --bucket $LINE --lifecycle-configuration  file://$POLICY --profile $awsprofile
 
 done

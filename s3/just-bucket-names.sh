@@ -1,3 +1,3 @@
 #!/bin/sh
 # Get bucket names
-aws s3 ls | awk '{print $3}'
+aws s3 ls --profile $awsprofile | awk '{print $3}'
