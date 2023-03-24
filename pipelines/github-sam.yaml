@@ -1,0 +1,83 @@
+name: Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  SAM_TEMPLATE: template.yaml
+  STACK_NAME: datore-rebura-pipeline-test
+  PIPELINE_EXECUTION_ROLE: arn:aws:iam::168867597874:role/aws-sam-cli-managed-datore-r-PipelineExecutionRole-1NC6HDV2BAEPD
+  CLOUDFORMATION_EXECUTION_ROLE: arn:aws:iam::168867597874:role/aws-sam-cli-managed-dator-CloudFormationExecutionR-MJGGWVAN0AVU
+  ARTIFACTS_BUCKET: aws-sam-cli-managed-datore-rebura-artifactsbucket-101lcza2qrnvu
+  REGION: eu-west-2
+
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  build-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - uses: aws-actions/setup-sam@v2
+
+      - name: Build resources
+        run: sam build --template ${SAM_TEMPLATE} --use-container
+
+      - name: Assume the testing pipeline user role
+        uses: aws-actions/configure-aws-credentials@v1-node16
+        with:
+          aws-region: ${{ env.REGION }}
+          role-to-assume: ${{ env.PIPELINE_EXECUTION_ROLE }}
+          role-session-name: testing-packaging
+          role-duration-seconds: 3600
+          role-skip-session-tagging: true
+
+      - name: Upload artifacts to testing artifact buckets
+        run: |
+          sam package \
+            --s3-bucket ${ARTIFACTS_BUCKET} \
+            --region ${REGION} \
+            --output-template-file packaged-datatransfer.yaml
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: packaged-datatransfer.yaml
+          path: packaged-datatransfer.yaml
+
+  deploy:
+    needs: [build-and-package]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - uses: aws-actions/setup-sam@v2
+      - uses: actions/download-artifact@v2
+        with:
+          name: packaged-build-cubes.yaml
+
+      - name: Assume the pipeline user role
+        uses: aws-actions/configure-aws-credentials@v1-node16
+        with:
+          aws-region: ${{ env.REGION }}
+          role-to-assume: ${{ env.PIPELINE_EXECUTION_ROLE }}
+          role-session-name: testing-packaging-deployment
+          role-duration-seconds: 3600
+          role-skip-session-tagging: true
+
+      - name: Deploy to testing account
+        run: |
+          sam deploy --stack-name ${STACK_NAME} \
+            --template packaged-datatransfer.yaml \
+            --capabilities CAPABILITY_IAM \
+            --region ${REGION} \
+            --s3-bucket ${ARTIFACTS_BUCKET} \
+            --no-fail-on-empty-changeset \
+            --role-arn ${CLOUDFORMATION_EXECUTION_ROLE}
