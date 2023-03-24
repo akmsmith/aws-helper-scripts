@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'KMS - CMK with rotation'
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+    - Label:
+        default: 'KMS Parameters'
+      Parameters:
+      - Service
+Parameters:
+  Service:
+    Description: 'Which AWS service is allowed to use this CMK?'
+    Type: String
+    AllowedValues:
+    - 'ALL_SERVICES'
+    - 'S3_PUBLIC_ACCESS'
+    - connect
+    - dms
+    - ssm
+    - ec2
+    - elasticfilesystem
+    - es
+    - kinesis
+    - kinesisvideo
+    - lambda
+    - lex
+    - redshift
+    - rds
+    - secretsmanager
+    - ses
+    - s3
+    - importexport
+    - sqs
+    - workmail
+    - workspaces
+    Default: ALL_SERVICES
+Conditions:
+  HasServiceAllServices: !Equals [!Ref Service, 'ALL_SERVICES']
+  HasServiceS3PublicAccess: !Equals [!Ref Service, 'S3_PUBLIC_ACCESS']
+Resources:
+  Key:
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Type: 'AWS::KMS::Key'
+    Properties:
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+          Action: 'kms:*'
+          Resource: '*'
+        - Effect: Allow
+          Principal:
+            # AWS: '*'
+            AWS: !Ref 'AWS::AccountId'
+          Action:
+          - 'kms:Encrypt'
+          - 'kms:Decrypt'
+          - 'kms:ReEncrypt*'
+          - 'kms:GenerateDataKey*'
+          - 'kms:CreateGrant'
+          - 'kms:ListGrants'
+          - 'kms:DescribeKey'
+          Resource: '*'
+          Condition:
+            StringEquals: !If
+            - HasServiceAllServices
+            - 'kms:CallerAccount': !Ref 'AWS::AccountId'
+            - 'kms:CallerAccount': !Ref 'AWS::AccountId'
+              'kms:ViaService': !Sub '${Service}.${AWS::Region}.amazonaws.com'
+        - !If
+          - HasServiceS3PublicAccess
+          - Effect: Allow
+            Principal:
+              AWS: !Ref 'AWS::AccountId'
+            Action:
+            - 'kms:Decrypt'
+            Resource: '*'
+            Condition:
+              StringEquals:
+                'kms:ViaService': !Sub 's3.${AWS::Region}.amazonaws.com'
+          - !Ref 'AWS::NoValue'
+Outputs:
+  StackName:
+    Description: 'Stack name'
+    Value: !Sub '${AWS::StackName}'
+  KeyId:
+    Description: 'Key id'
+    Value: !Ref Key
+    Export:
+      Name: !Sub '${AWS::StackName}-KeyId'
+  KeyArn:
+    Description: 'Key ARN'
+    Value: !GetAtt 'Key.Arn'
+    Export:
+      Name: !Sub '${AWS::StackName}-KeyArn'
