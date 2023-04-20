@@ -1,0 +1,65 @@
+{
+    "Version": "2012-10-17",
+    "Id": "PutObjPolicy",
+    "Statement":[
+            {
+                "Sid": "Allow GuardDuty to use the getBucketLocation operation",
+                "Effect": "Allow",
+                "Principal": {
+                    "Service": 
+                        "guardduty.amazonaws.com"
+                },
+                "Action": "s3:GetBucketLocation",
+                "Resource": "arn:aws:s3:::aws-logs-gd-clientname"
+            },
+            {
+                "Sid": "Allow GuardDuty to upload objects to the bucket",
+                "Effect": "Allow",
+                "Principal": {
+                    "Service": [
+                        "guardduty.amazonaws.com"
+                        ]
+                },
+                "Action": "s3:PutObject",
+                "Resource": "arn:aws:s3:::aws-logs-gd-clientname/*"
+            },
+            {
+                "Sid": "Deny incorrect encryption header. This is optional",
+                "Effect": "Deny",
+                "Principal": {
+                    "Service": "guardduty.amazonaws.com"
+                },
+                "Action": "s3:PutObject",
+                "Resource": "arn:aws:s3:::aws-logs-gd-clientname/*",
+                "Condition": {
+                    "StringNotEquals": {
+                        "s3:x-amz-server-side-encryption-aws-kms-key-id": "arn:aws:kms:eu-west-1:062557784851:key/66566093-20c3-4311-a127-3e0b3abfcb5b"
+                    }
+                    }
+                },
+                {
+                "Sid": "Deny non-HTTPS access",
+                "Effect": "Deny",
+                "Principal": "*",
+                "Action": "s3:*",
+                "Resource": "arn:aws:s3:::aws-logs-gd-clientname/*",
+                "Condition": {
+                    "Bool": {
+                        "aws:SecureTransport": "false"
+                        }
+                    }
+                },
+        {
+         "Sid": "GetACL",
+          "Action": "s3:GetBucketAcl",
+        "Effect": "Allow",
+         "Principal": "*",
+          "Resource": "arn:aws:s3:::aws-logs-gd-clientname",
+          "Condition": { 
+            "StringEquals": {
+              "AWS:SourceAccount": "AUDIT ACCOUNT NO"
+            }
+          }
+        }
+        ]
+    }
